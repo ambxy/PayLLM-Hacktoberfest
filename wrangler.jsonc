@@ -1,0 +1,36 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "agent-bank-demo",
+  "main": "deploy/cloudflare/worker.ts",
+  "compatibility_date": "2026-09-26",
+  // Callback query parameters contain authorization codes; keep them out of automatic request logs.
+  "observability": {
+    "enabled": true,
+    "logs": { "enabled": true, "invocation_logs": false },
+  },
+  // Forwarded to each sandbox. Set GEMINI_API_KEY / WORLD_RP_SIGNING_KEY with
+  // `wrangler secret put`, never here.
+  "vars": {
+    "BANK_AUTH_MODE": "world",
+    "AI_MODE": "gemini",
+    "GEMINI_MODEL": "gemini-3.5-flash-lite",
+    "WORLD_MODE": "live",
+    "WORLD_APP_ID": "app_433eec8779f43b5bf71da0af13347f1a",
+    "WORLD_RP_ID": "rp_099c693c134c943c",
+    "WORLD_ENVIRONMENT": "production",
+    "WORLD_FLOW": "session",
+  },
+  "containers": [
+    {
+      "class_name": "BankSandbox",
+      "image": "./Dockerfile",
+      "instance_type": "standard-1",
+      "max_instances": 10,
+      "rollout_step_percentage": [100],
+    },
+  ],
+  "durable_objects": {
+    "bindings": [{ "name": "BANK_SANDBOX", "class_name": "BankSandbox" }],
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["BankSandbox"] }],
+}

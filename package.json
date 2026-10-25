@@ -1,0 +1,57 @@
+{
+  "name": "agent-bank",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.5.1",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "invoices:pdf": "node --import tsx scripts/generate-invoice-pdfs.ts",
+    "ai:eval": "node --conditions=react-server --import tsx scripts/ai-eval.ts",
+    "dev": "node scripts/start-bank.mjs dev",
+    "build": "next build",
+    "start": "node scripts/start-bank.mjs start",
+    "typecheck": "tsc --noEmit",
+    "contracts:build": "hardhat compile",
+    "contracts:test": "hardhat test",
+    "test": "node --conditions=react-server --import tsx --test tests/*.test.ts",
+    "test:e2e": "playwright test",
+    "db:migrate": "node --env-file-if-exists=.env.local --conditions=react-server --import tsx scripts/migrate.ts",
+    "sepolia": "node --env-file-if-exists=.env.local --conditions=react-server --import tsx scripts/sepolia.ts",
+    "setup:env": "node scripts/setup-env.mjs",
+    "world:status": "node --env-file-if-exists=.env.local --conditions=react-server --import tsx scripts/world-status.ts",
+    "auth": "node --env-file-if-exists=.env.local --conditions=react-server --import tsx scripts/auth.ts",
+    "cf:deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "@worldcoin/idkit": "4.3.0",
+    "better-sqlite3": "13.0.3",
+    "drizzle-orm": "0.45.3",
+    "next": "16.3.5",
+    "openid-client": "6.8.8",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "server-only": "0.0.1",
+    "viem": "2.56.8",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@cloudflare/containers": "0.3.7",
+    "@nomicfoundation/hardhat-toolbox-viem": "5.0.7",
+    "@openzeppelin/contracts": "5.6.1",
+    "@playwright/test": "1.63.0",
+    "@types/better-sqlite3": "7.6.13",
+    "@types/node": "24.10.1",
+    "@types/react": "19.2.7",
+    "@types/react-dom": "19.2.3",
+    "hardhat": "3.17.0",
+    "node-gyp": "13.0.2",
+    "pdf-lib": "1.17.1",
+    "prettier": "3.6.2",
+    "tsx": "4.21.0",
+    "typescript": "7.0.2",
+    "wrangler": "4.136.3"
+  }
+}

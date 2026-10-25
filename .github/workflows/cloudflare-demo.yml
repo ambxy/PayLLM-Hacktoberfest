@@ -1,0 +1,84 @@
+# Runs the Cloudflare demo (Worker -> Durable Object -> amd64 container) locally
+# via `wrangler dev` on a native amd64 runner; no Cloudflare account needed.
+name: Cloudflare demo smoke test
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - Dockerfile
+      - wrangler.jsonc
+      - deploy/cloudflare/**
+      - .github/workflows/cloudflare-demo.yml
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      WRANGLER_SEND_METRICS: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - run: npm install -g pnpm@12.5.1
+      - run: pnpm install --frozen-lockfile
+
+      - name: Start wrangler dev
+        run: |
+          # WORLD_MODE checks that Worker vars reach the container. CI has no Gemini or
+          # World keys, so it uses stub AI and demo login.
+          pnpm exec wrangler dev --port 8787 --var WORLD_MODE:live --var AI_MODE:stub --var BANK_AUTH_MODE:local-demo > wrangler.log 2>&1 &
+          for i in $(seq 1 180); do
+            grep -q "Ready on" wrangler.log && exit 0
+            sleep 5
+          done
+          cat wrangler.log; exit 1
+
+      - name: Smoke test through the Worker
+        run: |
+          set -eu
+          base=http://localhost:8787
+          # Mimic headers the Cloudflare edge adds in production.
+          json=(-H "content-type: application/json" -H "Origin: $base" -H "X-Forwarded-Proto: https" -H "X-Forwarded-Host: example.workers.dev")
+
+          echo "--- first visit redirects and sets the sandbox cookie"
+          curl -sS -c jar -o /dev/null -w "%{http_code}\n" $base/ | grep -qx 302
+
+          echo "--- cold start (container boot)"
+          time curl -sS -b jar -o /dev/null -w "%{http_code}\n" --max-time 180 $base/ | tee code
+          grep -qx 200 code
+
+          echo "--- foreign origin is rejected"
+          curl -sS -b jar -o /dev/null -w "%{http_code}\n" -H "content-type: application/json" \
+            -H "Origin: https://evil.example" -X POST $base/api/auth/demo-login -d '{}' | grep -qx 403
+
+          echo "--- demo login"
+          curl -sS -b jar -c jar "${json[@]}" -X POST $base/api/auth/demo-login -d '{}' | tee login
+          grep -q '"authenticated":true' login
+
+          echo "--- demo reset deploys contracts on Anvil"
+          curl -sS -b jar "${json[@]}" -X POST --max-time 120 $base/api/demo/reset -d '{}' | tee reset
+          grep -q '"token":"0x' reset
+
+          echo "--- dashboard"
+          curl -sS -b jar $base/api/dashboard | tee dash
+          grep -q '"initialized":true' dash
+
+          echo "--- Worker vars reach the container"
+          curl -sS -b jar $base/api/world | tee world
+          grep -q '"mode":"live"' world
+          grep -q '"enrollTicketRequired":false' world
+
+          echo "--- a second visitor gets an isolated sandbox"
+          curl -sS -c jar2 -o /dev/null $base/
+          curl -sS -b jar2 --max-time 180 $base/api/auth/session | tee other
+          grep -q '"authenticated":false' other
+
+      - name: Wrangler log
+        if: always()
+        run: tail -200 wrangler.log || true

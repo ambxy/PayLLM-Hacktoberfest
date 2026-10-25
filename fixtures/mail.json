@@ -1,0 +1,30 @@
+[
+  {
+    "id": "aoba-mail",
+    "sender": "billing@aoba.example",
+    "subject": "Invoice for September design services",
+    "body": "Please find attached the invoice for September design services totaling JPY 200,000. Payment is due by October 1 at 12:00 JST.",
+    "attachment": {
+      "number": "AOBA-202609-001",
+      "issuer": "Aoba Design",
+      "recipientId": "aoba",
+      "amountJpy": "200000",
+      "dueAt": "2026-10-01T03:00:00.000Z",
+      "recurrenceKey": "aoba-services"
+    }
+  },
+  {
+    "id": "sakura-mail",
+    "sender": "billing@sakura.example",
+    "subject": "September office fee",
+    "body": "The office fee of JPY 100,000 is due on October 10.",
+    "attachment": {
+      "number": "SAKURA-202609-001",
+      "issuer": "Sakura Office",
+      "recipientId": "sakura",
+      "amountJpy": "100000",
+      "dueAt": "2026-10-10T03:00:00.000Z",
+      "recurrenceKey": "office"
+    }
+  }
+]
