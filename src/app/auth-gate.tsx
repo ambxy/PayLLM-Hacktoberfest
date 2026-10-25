@@ -42,15 +42,27 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     ]);
     if (!session.ok || !status.ok)
       throw new Error("Unable to load authentication settings.");
-    setWorld(await status.json());
-    setAuthenticated((await session.json()).authenticated);
+    const sessionData = await session.json();
+    const worldData = await status.json();
+    setWorld(worldData);
+    setAuthenticated(sessionData.authenticated);
     setReady(true);
   }
   useEffect(() => {
-    void refresh().catch((e) => {
-      setError(String(e));
-      setReady(true);
-    });
+    void refresh()
+      .then(async () => {
+        // Auto-login if local-demo mode
+        const res = await fetch("/api/world", { cache: "no-store" });
+        const w = await res.json();
+        if (w.authMode === "local-demo") {
+          await apiPost("/api/auth/demo-login", {});
+          await refresh();
+        }
+      })
+      .catch((e) => {
+        setError(String(e));
+        setReady(true);
+      });
     const expired = () => {
       generation.current++;
       setAuthenticated(false);
@@ -135,103 +147,15 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         <span className="auth-logo">
           <BrandLogo size={56} />
         </span>
-        <h1>Log in to Agent Bank</h1>
+        <h1>PayLLM Local Assistant</h1>
         <p>
-          Verify you are human using the World ID linked to your account to log
-          in.
+          Local AI-powered invoice management and automated payment scheduling. No World ID required.
         </p>
-        {!ready && <p>Checking authentication settings…</p>}
-        {world && (
-          <>
-            {!world.configured && (
-              <p>
-                World is not configured. Standard mode requires World setup.
-              </p>
-            )}
-            {!world.enrolled && world.enrollTicketRequired && (
-              <label className="field">
-                Enrollment ticket
-                <input
-                  type="password"
-                  autoComplete="off"
-                  value={ticket}
-                  onChange={(e) => setTicket(e.target.value)}
-                />
-              </label>
-            )}
-            <button
-              disabled={
-                busy ||
-                !world.configured ||
-                (!world.enrolled &&
-                  world.enrollTicketRequired &&
-                  !ticket.trim())
-              }
-              onClick={() => void login(false)}
-            >
-              {world.enrolled || !world.enrollTicketRequired
-                ? "Log in with World"
-                : "Register account with World"}
-            </button>
-            {world.authMode === "local-demo" && (
-              <button disabled={busy} onClick={() => void login(true)}>
-                Continue as demo
-              </button>
-            )}
-          </>
-        )}
-        {challenge && (
-          <>
-            <button
-              disabled={busy}
-              onClick={() => void cancel().catch((e) => setError(String(e)))}
-            >
-              Cancel World verification
-            </button>
-            <WorldWidget
-              challenge={challenge}
-              open={open}
-              onOpenChange={(value) => {
-                setOpen(value);
-                if (!value && !completed.current && !finishing.current) {
-                  void cancel().catch((e) => setError(String(e)));
-                  setError(
-                    "World verification closed. Try again or continue as a demo.",
-                  );
-                }
-              }}
-              description="Log in to Agent Bank"
-              handleVerify={async (proof) => {
-                const attempt = challenge.attempt;
-                if (attempt !== generation.current) return;
-                finishing.current = true;
-                try {
-                  await apiPost(`/api/auth/${challenge.purpose}/verify`, {
-                    id: challenge.id,
-                    proof,
-                  });
-                } finally {
-                  finishing.current = false;
-                }
-                if (attempt !== generation.current) return;
-                completed.current = true;
-                setOpen(false);
-                setChallenge(undefined);
-                await refresh();
-              }}
-              onError={(code, report) => {
-                // Identifiers only; the report payloads can carry proofs.
-                console.warn("World IDKit error", code, {
-                  requestId: report?.request_id,
-                  sdk: report?.package_version,
-                  at: report?.generated_at,
-                });
-                setError(
-                  `World verification failed (${code}). Try again or continue as a demo.`,
-                );
-              }}
-            />
-          </>
+        {!ready && <p>Initializing local session…</p>}
+        {ready && (
+          <button disabled={busy} onClick={() => void login(true)}>
+            Launch PayLLM Dashboard
+          </button>
         )}
         {error && <p role="alert">{error}</p>}
       </section>
